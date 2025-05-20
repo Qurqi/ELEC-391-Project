@@ -4,7 +4,7 @@ char userInput;
 
 void setup() {
   // put your setup code here, to run once:
-  Serial.begin(115200);
+  Serial.begin(9600);
   IMU.begin(); 
   if (!IMU.begin()) {
     Serial.println("Failed to initialize IMU!");
@@ -14,25 +14,18 @@ void setup() {
 }
 
 void loop() {
-
-  float Ax, Ay, Az, angle;
-
-  // check for user input 
-  if (Serial.available() > 0) {
-      userInput = Serial.read();    
-      // if user input is 'g' return angle data
-      if (userInput == 'g') {
-          if (IMU.accelerationAvailable()) {
-                  IMU.readAcceleration(Ax, Ay, Az);
-                  angle = atan(Ay/Az)*180/3.1415926;
-                  Serial.println(angle);
-          }
+  float x, y, z, angle;
+  // put your main code here, to run repeatedly:
+  IMU.readAcceleration(x,y,z);
+  if (IMU.accelerationAvailable()) {
+    if(Serial.available()>0){
+      userInput = Serial.read();
+      if(userInput =='g'){
+        IMU.readAcceleration(x, y, z);
+        angle = atan(y/z)*180/3.1415926;
+        Serial.println(angle);
+        delay(10);
       }
-      // if user input is 'e' exit
-      if (userInput == 'e'){
-        Serial.println("Exit signal Recieved. Transmission ended");
-        while (1);
-      }
+    }
   }
-  
 }
