@@ -35,6 +35,16 @@ Gy = []
 Wx = []
 Wy = []
 
+ax1.plot(Ax, Ay, label='A', color='blue')
+ax1.plot(Gx, Gy, label='G', color='red')
+ax1.plot(Wx, Wy, label='W', color='green')
+ax1.legend(loc='upper right')
+
+ser.write(b'k')
+## wait for the k-value to be sent
+k_value = float(ser.readline().decode('utf-8').strip())
+print("k-value: ", k_value)
+
 def getValues():
 
     ser.write(b'd') # send a byte to the Arduino to start sending data
@@ -57,55 +67,60 @@ def getValues():
     return A_angle, G_angle, W_angle
 
 def animate(frame):
+
     Acc,Gry,Wei = getValues()
     # plot Acc, Gyr, and Wei on the same graph
     # graph must be bounded between -90 and 90
     # check if data is None. If it is, return nothing
     if Acc is None or Gry is None or Wei is None:
         return
+    if frame == 100:
+        plt.close(fig)
+    else:
     # Add values to angle matrices
-    Ay.append(Acc)
-    Gy.append(Gry)
-    Wy.append(Wei)
+        Ay.append(Acc)
+        Gy.append(Gry)
+        Wy.append(Wei)
 
-    # add time axis
-    Ax.append(frame)
-    Gx.append(frame)
-    Wx.append(frame)
-    
-    plt.xlim(Ax[0], Ax[-1])
-    # plot the data on the same graph
-    ax1.plot(Ax, Ay, label='Acc', color='blue')
-    ax1.plot(Gx, Gy, label='Gry', color='red')
-    ax1.plot(Wx, Wy, label='Wei', color='green')
-    ax1.legend(loc='upper right')
+        # add time axis
+        Ax.append(frame)
+        Gx.append(frame)
+        Wx.append(frame)
+
+        ax1.plot(Ax, Ay,color='blue')
+        ax1.plot(Gx, Gy,color='red')
+        ax1.plot(Wx, Wy,color='green')
 
 
-while k_value < 1.0:
+
+
+while k_value < 1: ## change to k < 0.03 FOR TESTING. Bump to LT 1 after testing
 
     # read in the k-value for the current iteration
     # send arduino a 'k' to signal it to send the k-value
     ser.write(b'k')
-    k_value = ser.readline().decode('utf-8')
+    print("Waiting for k-value...")
+    # read in the k-value from the serial port
+    ## wait for the k-value to be sent
+    k_value = float(ser.readline().decode('utf-8').strip())
+
     ser.flushInput()
-    # convert the k-value to a float
-    k_value = float(k_value)
+
     # read in 100 data points from the serial port and plot them
-    for i in range(100):
-        ani = animation.FuncAnimation(fig, animate, frames = np.linspace(1,100,100), interval=100)
-        plt.show()
-        i+=1
+    
+    ani = animation.FuncAnimation(fig, animate, frames = np.linspace(1,100,100), interval=10)
+    plt.show()   
 
     # reset i
     i = 0
     # convert that list into a numpy array  
     data = np.array(data) 
+    print("Data: ", data)
     # store that array in a dictionary with a key of the given k-value
     data_dict[k_value] = data
     # clear the data list for the next k-value
     data = []
      # clear the plot
-    ax1.clear()
     Ax = []
     Ay = []
 
@@ -128,14 +143,14 @@ for k_value, data in data_dict.items():
 # plot the mean and variance of each k-value
 fig, ax = plt.subplots()
 
-ax.plot(data_dict.keys(), data['mean'], 'o', label='Mean')
-ax.plot(data_dict.keys(), data['variance'], 'x', label='Variance')
-ax.set_xlabel('k-value')
-ax.set_ylim([min(data['mean'] and data['variance']), max(data['mean'] and data['variance'])])
-ax.set_ylabel('Mean (o) /Variance (x)')
-ax.set_title('Mean and Variance of Azimuth Angle Reading vs. k-value')
-ax.legend()
-plt.show()
+#ax.plot(data_dict.keys(), data['mean'], 'o', label='Mean')
+#ax.plot(data_dict.keys(), data['variance'], 'x', label='Variance')
+#ax.set_xlabel('k-value')
+#ax.set_ylim([min(data['mean'] and data['variance']), max(data['mean'] and data['variance'])])
+#ax.set_ylabel('Mean (o) /Variance (x)')
+#ax.set_title('Mean and Variance of Azimuth Angle Reading vs. k-value')
+#ax.legend()
+#plt.show()
 
     
 
