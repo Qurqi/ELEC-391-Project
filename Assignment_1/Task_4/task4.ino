@@ -2,7 +2,7 @@
 
 char buffer[20];
 char userInput;
-float k = 0.50;
+float k = 0.62;
 float W_angle[2] = {0,0};
 float G_angle = 0;
 float NG_angle = 0;
@@ -17,12 +17,8 @@ void setup() {
     Serial.println("Failed to initialize IMU!");
     while (1);
   }
-  rate = IMU.gyroscopeSampleRate();
-  Serial.println(rate);
-  rate = (1/rate);
-  Serial.println(rate);
+  rate = (1/IMU.gyroscopeSampleRate());
 
-  
 }
 void loop() {
 
@@ -52,9 +48,7 @@ void loop() {
 
 
       if (userInput == 'k') {
-        if (Serial.available() > 0) {
           Serial.println(k);
-        }
       }
     
       // if user input is 'd' return angle data
@@ -62,25 +56,26 @@ void loop() {
           // pack the buffer with colon-delimited angle values
           sprintf(buffer, "%.2f:%.2f:%.2f", A_angle, NG_angle, W_angle[1]);
           // send the buffer to the serial port
-          if (Serial.available() > 0) {
+          
           Serial.println(buffer);
-          //W_angle[0] = W_angle[1];
-          }
+        
+          
           // clear the buffer 
           memset(buffer, 0, sizeof(buffer));
       }
       // if user input is 'n' iterate k-value by 0.01
       if (userInput == 'n') {
-          k += 0.01;
-          
+          k += 0.01; 
+          G_angle = 0;
+        
       }
       // if user input is 'e' exit
       if (userInput == 'e'){
-        if (Serial.available() > 0) {
         Serial.println("Exit signal Recieved. Transmission ended");
-        }
+        
         while (1);
       }
   
   
 }
+

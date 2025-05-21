@@ -88,11 +88,6 @@ def animate(i,Ay,Gy,Wy):
     ax1.plot(Gy,color='red')
     ax1.plot(Wy,color='green')
 
-    
-
-
-
-
 # read in 100 data points from the serial port and plot them
 ani = animation.FuncAnimation(fig, animate, frames = 100, fargs = (Ay,Gy,Wy), interval=1)
 plt.show() 
