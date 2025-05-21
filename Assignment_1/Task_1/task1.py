@@ -33,14 +33,11 @@ ax.set_title('Azimuth Angle Reading vs. Time')
 ax.set_xlabel('Time (s)')
 ax.set_ylabel('Azimuth Angle (degrees)')
 
-ser = serial.Serial("/dev/ttyACM0", 115200)
+ser = serial.Serial("COM3", 115200)
 time.sleep(2)
 ser.write(b'g')
 
 
-while True:
-    
-    ani = animation.FuncAnimation(fig, animate, frames=100, fargs=(dataList, ser), interval = 100)
-
-    plt.show()
-    ser.close()
+ani = animation.FuncAnimation(fig, animate, frames=100, fargs=(dataList, ser), interval = 100)
+plt.show()
+ser.close()
