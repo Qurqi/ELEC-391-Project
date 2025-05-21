@@ -31,6 +31,5 @@ void loop() {
         Serial.println(-angle);
       }
     }
-    delay(10);
   }
 }
