@@ -37,7 +37,7 @@ void loop() {
                 G_angle = G_angle + Gx*(rate);
           }
 
-      if (IMU.accelerationAvailable()) {
+      /*if (IMU.accelerationAvailable()) {
               IMU.readAcceleration(Ax, Ay, Az);
               A_angle = atan(Ay/Az)*180/3.1415926;
       }
@@ -45,6 +45,7 @@ void loop() {
       // update previous angle reading
       NG_angle = G_angle*-1;
       W_angle[1] = k*(W_angle[0]+NG_angle) + (1-k)*(A_angle);
+      */
 
 
       if (userInput == 'k') {
@@ -54,14 +55,23 @@ void loop() {
       // if user input is 'd' return angle data
       if (userInput == 'd') {
           // pack the buffer with colon-delimited angle values
-          sprintf(buffer, "%.2f:%.2f:%.2f", A_angle, NG_angle, W_angle[1]);
-          // send the buffer to the serial port
+        if (IMU.accelerationAvailable()) {
+          IMU.readAcceleration(Ax, Ay, Az);
+          A_angle = atan(Ay/Az)*180/3.1415926;
+        }
+        // calculate weighted angle
+        // update previous angle reading
+        NG_angle = G_angle*-1;
+        W_angle[1] = k*(W_angle[0]+NG_angle) + (1-k)*(A_angle);
+
+        sprintf(buffer, "%.2f:%.2f:%.2f", A_angle, NG_angle, W_angle[1]);
+        // send the buffer to the serial port
           
-          Serial.println(buffer);
+        Serial.println(buffer);
         
           
-          // clear the buffer 
-          memset(buffer, 0, sizeof(buffer));
+        // clear the buffer 
+        memset(buffer, 0, sizeof(buffer));
       }
       // if user input is 'n' iterate k-value by 0.01
       if (userInput == 'n') {
