@@ -1,4 +1,4 @@
- import serial
+import serial
 import time
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -27,38 +27,18 @@ ax1.set_xlabel('Time (s)')
 ax1.set_ylabel('Azimuth Angles (degrees)')
 
 # Create Lists for each angle
-Ax = [0]
-Ay = [0]
 
-Gx = [0]
-Gy = [0]
+Ay = []
 
-Wx = [0]
-Wy = [0]
+Gy = []
+
+Wy = []
 
 # Create Lists for each angle
-ax1.plot(Ax, Ay, label='A', color='blue')
-ax1.plot(Gx, Gy, label='G', color='red')
-ax1.plot(Wx, Wy, label='W', color='green')
+ax1.plot(Ay, label='A', color='blue')
+ax1.plot(Gy, label='G', color='red')
+ax1.plot(Wy, label='W', color='green')
 ax1.legend(loc='upper right')
-
-def reconfigure_graph():
-    # set up the figure
-    fig = plt.figure()
-    ax1 = fig.add_subplot(1,1,1)
-    plt.ylim(-90, 90)
-
-    ax1.set_title('Azimuth Angle Readings vs. Time')
-    ax1.set_xlabel('Time (s)')
-    ax1.set_ylabel('Azimuth Angles (degrees)')
-
-    ax1.plot(Ax, Ay, label='A', color='blue')
-    ax1.plot(Gx, Gy, label='G', color='red')
-    ax1.plot(Wx, Wy, label='W', color='green')
-
-    # Create Lists for each angle
-    ax1.legend(loc='upper right')
-
 
 def getValues():
 
@@ -80,37 +60,33 @@ def getValues():
 
     return A_angle, G_angle, W_angle
 
-def animate(frame):
+def animate(i,Ay,Gy,Wy):
 
-    Acc,Gry,Wei = getValues()
-    # plot Acc, Gyr, and Wei on the same graph
-    # graph must be bounded between -90 and 90
-    # check if data is None. If it is, return nothing
-    if Acc is None or Gry is None or Wei is None:
-        return
+    ser.write(b'd') # send a byte to the Arduino to start sending data
 
-    # Add values to angle matrices
-    Ay.append(Acc)
-    Gy.append(Gry)
-    Wy.append(Wei)
-    # add time axis
-    Ax.append(frame)
-    Gx.append(frame)
-    Wx.append(frame)
+    arduinoData = ser.readline().decode('utf-8')
+    ser.flushInput()
+    # Validate data somehow
+    # check if the data is empty
+    if arduinoData == '':
+        print("No data received")
+        return None, None, None
+    # break up data into a list.
+    # data is colon delimited
+    split_data = arduinoData.split(':')
 
-    if len(Ax) > 100:
-        Ay = Ay[-100:]
-        Gy = Gy[-100:]
-        Wy = Wy[-100:]
-        Ax = Ax[-100:]
-        Gx = Gx[-100:]
-        Wx = Wx[-100:]
-        
-        ax1.clear()
-        
-    ax1.plot(Ax, Ay,color='blue')
-    ax1.plot(Gx, Gy,color='red')
-    ax1.plot(Wx, Wy,color='green')
+    Ay.append(float(split_data[0]))
+    Gy.append(float(split_data[1]))
+    Wy.append(float(split_data[2]))
+
+    Ay = Ay[-100:]
+    Gy = Gy[-100:]
+    Wy = Wy[-100:]
+
+    ax1.clear()
+    ax1.plot(Ay,color='blue')
+    ax1.plot(Gy,color='red')
+    ax1.plot(Wy,color='green')
 
     
 
@@ -118,7 +94,7 @@ def animate(frame):
 
 
 # read in 100 data points from the serial port and plot them
-ani = animation.FuncAnimation(fig, animate, frames = 100,interval=1)
+ani = animation.FuncAnimation(fig, animate, frames = 100, fargs = (Ay,Gy,Wy), interval=1)
 plt.show() 
  
 
