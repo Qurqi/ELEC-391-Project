@@ -9,12 +9,13 @@ import statistics
 
 # create array and dictionary to store data
 data = []
+weights = []
 data_dict = {}
-variance_dict = {}
 mean_dict = {}
 k_value = 0.0
 i = 0
-
+time_array = [0.0000,0.000000]
+rate = 0.000
 # set up the serial connection
 ser = serial.Serial('/dev/ttyACM0', baudrate = 115200, timeout=1)
 time.sleep(2) # wait for the serial connection to establish
@@ -52,10 +53,10 @@ print("k-value: ", k_value)
 ser.flushInput()
 
 def getValues():
-
-    print("Getting values...")
     ser.write(b'd') # send a byte to the Arduino to start sending data
 
+    # read in the data from the serial port   
+    # append curent rate to  
     arduinoData = ser.readline().decode('utf-8')
     ser.flushInput()
     # Validate data somehow
@@ -108,21 +109,32 @@ while k_value < 1: ## change to k < 0.03 FOR TESTING. Bump to LT 1 after testing
 
 # after reading data for all k values between 0.01 and 0.99, find the mean and variance of each k-value matrix
 for k_value, data in data_dict.items():
-    # calculate the mean and variance of the data
-    mean = np.mean(data)
-    variance = np.var(data)
-    # store the mean and variance in a dictionary with the k-value as the key
-    mean_dict[k_value] = mean
-    variance_dict[k_value] = variance
-# plot the mean and variance of each k-value
+    
+    # find average frequency content
+    dft = np.fft.fft(data)
+    print("DFT: ", dft)
+    dft = np.abs(dft) 
+    print("DFT: ", dft)
+    # find the mean frequency content
+    for j in range(len(dft)):
+        weights.append(dft[j]*j)
+    # sum all the entries in the weights list
+    sum_weights = sum(weights)
+    # divide by the number of entries in the weights list
+    mean_weights = sum_weights / len(weights)
+       
+    mean_dict[k_value] = mean_weights 
+    weights = []
 
-print("Data Dictionary: ", data_dict)
+
+
+
+# plot the smallest average frequency content
 fig, ax = plt.subplots()
-ax.plot(list(mean_dict.keys()), list(mean_dict.values()), label='Mean', color='blue')
-ax.plot(list(variance_dict.keys()), list(variance_dict.values()), label='Variance', color='red')
-ax.set_title('Mean and Variance of Azimuth Angles vs. k-value')
+ax.plot(mean_dict.keys(), mean_dict.values(), label='Mean Frequency Content', color='blue')
+ax.set_title('Lowest Mean frequency Content for Azimuth Angles vs. k-value')
 ax.set_xlabel('k-value')
-ax.set_ylabel('Mean and Variance')
+ax.set_ylabel('Mean frequency content')
 ax.legend(loc='upper right')
 plt.show()
 # close the serial connection
