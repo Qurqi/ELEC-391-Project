@@ -17,7 +17,7 @@ i = 0
 time_array = [0.0000,0.000000]
 rate = 0.000
 # set up the serial connection
-ser = serial.Serial('/dev/ttyACM0', baudrate = 115200, timeout=1)
+ser = serial.Serial('COM3', baudrate = 115200, timeout=1)
 time.sleep(2) # wait for the serial connection to establish
 style.use('fivethirtyeight')
 # set up the figure
@@ -74,7 +74,7 @@ def getValues():
 
     return A_angle, G_angle, W_angle
 
-while k_value < 1: ## change to k < 0.03 FOR TESTING. Bump to LT 1 after testing
+while k_value < 0.92: ## change to k < 0.03 FOR TESTING. Bump to LT 1 after testing
 
     # read in the k-value for the current iteration
     # send arduino a 'k' to signal it to send the k-value
