@@ -14,7 +14,7 @@ k_value = 0.0
 i = 0
 
 # set up the serial connection
-ser = serial.Serial('/dev/ttyACM0', baudrate = 115200, timeout=1)
+ser = serial.Serial('COM3', baudrate = 115200, timeout=1)
 time.sleep(2) # wait for the serial connection to establish
 style.use('fivethirtyeight')
 # set up the figure
@@ -22,9 +22,11 @@ fig = plt.figure()
 ax1 = fig.add_subplot(1,1,1)
 plt.ylim(-90, 90)
 
+
 ax1.set_title('Azimuth Angle Readings vs. Time')
 ax1.set_xlabel('Time (s)')
 ax1.set_ylabel('Azimuth Angles (degrees)')
+
 
 # Create Lists for each angle
 
@@ -88,9 +90,10 @@ def animate(i,Ay,Gy,Wy):
     ax1.plot(Gy,color='red')
     ax1.plot(Wy,color='green')
 
+    ax1.legend(['A', 'G', 'W'], loc='upper right')
+
+
 # read in 100 data points from the serial port and plot them
 ani = animation.FuncAnimation(fig, animate, frames = 100, fargs = (Ay,Gy,Wy), interval=1)
 plt.show() 
- 
-
  
