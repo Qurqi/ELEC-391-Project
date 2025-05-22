@@ -20,9 +20,12 @@ def animate(i, dataList, ser):
     ax.clear()
     ax.plot(dataList)
     ax.yaxis.set_major_locator(ticker.MultipleLocator(10))
-    ax.set_ylim([-120, 120])
-    ax.set_title("Arduino Data")
-    ax.set_ylabel("Value")
+    ax.set_ylim([-100, 100])
+    ax.set_title('Azimuth Angle Readings vs. Time')
+    ax.set_xlabel('Time (s)')
+    ax.set_ylabel('Azimuth Angles (degrees)')
+
+    
 
 dataList = []
 
