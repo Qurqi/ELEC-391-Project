@@ -9,6 +9,8 @@ float NG_angle = 0;
 float rate;
 float NN_angle;
 float G_angleC=0;
+unsigned long start_time = 0;
+unsigned long end_time = 0;
 
 void setup() {
   // put your setup code here, to run once:
@@ -26,7 +28,6 @@ void loop() {
   float Ax, Ay, Az, Gx, Gy, Gz, A_angle;
 
   // check for user input 
-
       userInput = Serial.read();
       // if user input is 'k' send k value
       if (IMU.accelerationAvailable()) {
@@ -34,10 +35,13 @@ void loop() {
       }
       if (IMU.gyroscopeAvailable()) {
                 IMU.readGyroscope(Gx, Gy, Gz);
+
                 // read the sampling rate
                 // calculate the angle
                 // replace G_angle[0] with G_angle[1], then replace G_angle[1] with Gy
-                G_angle = Gx*(rate);
+                start_time = micros();
+                G_angle = Gx*(start_time-end_time)*0.000001;
+                end_time =micros();
                 G_angleC = G_angleC + G_angle;
           }
 
