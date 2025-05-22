@@ -2,7 +2,8 @@
 
 char userInput;
 float x, y, z, angle;
-float sampling_rate;
+unsigned long start_time = 0;
+unsigned long end_time = 0;
 
 void setup() {
   // put your setup code here, to run once:
@@ -12,8 +13,6 @@ void setup() {
     Serial.println("Failed to initialize IMU!");
     while (1);
   }
-  sampling_rate = 1/IMU.gyroscopeSampleRate();
-  Serial.println(sampling_rate);
 }
 
 void loop() {
@@ -21,10 +20,12 @@ void loop() {
   if(angle == NULL){
     angle = 0;
   }
-  IMU.readGyroscope(x,y,z);
+  
   if (IMU.gyroscopeAvailable()) {
     IMU.readGyroscope(x,y,z);
-    angle = angle + x*sampling_rate;
+    start_time = micros();
+    angle = angle + x*(start_time-end_time)*0.000001;
+    end_time = micros();
     if(Serial.available()>0){
       userInput = Serial.read();
       if(userInput =='g'){
@@ -32,4 +33,5 @@ void loop() {
       }
     }
   }
+
 }
