@@ -6,6 +6,11 @@ from matplotlib import style
 import numpy as np
 import statistics
 
+##FINDS THE LOWEST MEAN FREQUENCY CONTENT FOR EACH k-VALUE
+## Reads in 100 samples from arduino as it is roating back and forth
+## takes the DFT of the data and finds the mean frequency content
+## the k-value with the lowest mean frequency content is the k-value which gives the smoothest curve
+
 
 # create array and dictionary to store data
 data = []
