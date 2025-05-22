@@ -17,6 +17,7 @@ data = []
 weights = []
 data_dict = {}
 mean_dict = {}
+diff_dict = {}
 k_value = 0.0
 i = 0
 time_array = [0.0000,0.000000]
@@ -79,7 +80,7 @@ def getValues():
 
     return A_angle, G_angle, W_angle
 
-while k_value < 0.92: ## change to k < 0.03 FOR TESTING. Bump to LT 1 after testing
+while k_value < 1: ## change to k < 0.03 FOR TESTING. Bump to LT 1 after testing
 
     # read in the k-value for the current iteration
     # send arduino a 'k' to signal it to send the k-value
@@ -131,11 +132,21 @@ for k_value, data in data_dict.items():
     mean_dict[k_value] = mean_weights 
     weights = []
 
+# find the first order difference of the data 
+for k_value, data in data_dict.items():
+    # find the first order difference of the data
+    first_order_diff = np.diff(data)
+    # find the variance of the first order difference
+    var_first_order_diff = np.var(first_order_diff)
+    # store the mean in the dictionary
+    diff_dict[k_value] = var_first_order_diff
+
 
 
 
 # plot the smallest average frequency content
 fig, ax = plt.subplots()
+ax.plot(diff_dict.keys(), diff_dict.values(), label='Variance in first order difference', color='Orange')
 ax.plot(mean_dict.keys(), mean_dict.values(), label='Mean Frequency Content', color='blue')
 ax.set_title('Lowest Mean frequency Content for Azimuth Angles vs. k-value')
 ax.set_xlabel('k-value')

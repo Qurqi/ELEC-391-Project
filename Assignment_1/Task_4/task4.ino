@@ -2,7 +2,7 @@
 
 char buffer[20];
 char userInput;
-float k = 0.82;
+float k = 0.8;
 float W_angle[2] = {0,0};
 float G_angle = 0;
 float NG_angle = 0;

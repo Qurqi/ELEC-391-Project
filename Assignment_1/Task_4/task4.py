@@ -14,7 +14,7 @@ k_value = 0.0
 i = 0
 
 # set up the serial connection
-ser = serial.Serial('/dev/ttyACM0', baudrate = 115200, timeout=1)
+ser = serial.Serial('COM3', baudrate = 115200, timeout=1)
 time.sleep(2) # wait for the serial connection to establish
 style.use('fivethirtyeight')
 # set up the figure
