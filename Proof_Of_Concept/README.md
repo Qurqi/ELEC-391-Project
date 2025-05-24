@@ -1,1 +1,1 @@
-This is our code for the "Proof Of Concept" Demo due May 28
+Here is our code for the "Proof Of Concept" demo on May 28
