@@ -1,3 +1,4 @@
 # ELEC-391-Project
 
-A spot to upload and update code
+Our spot to organize and store our project code and resources.
+:P
