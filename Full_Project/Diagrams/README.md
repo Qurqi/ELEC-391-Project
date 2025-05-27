@@ -1,1 +1,1 @@
-Here we have block diagrams and code diagrams mostly made in Draw.io
+Here we have block diagrams, code diagrams, and photos relevant to the project
