@@ -1,0 +1,10 @@
+Modelling a DC motor:
+  https://ctms.engin.umich.edu/CTMS/index.php?example=MotorSpeed&section=SystemModeling
+Measuring back EMF constant:
+  https://electronics.stackexchange.com/questions/110557/calculating-back-emf-from-torque-constant
+Measuring Inductance:
+  https://www.youtube.com/watch?v=Fyv4_nKbGZI
+Arduino PWM frequency change:
+  https://forum.arduino.cc/t/how-to-change-arduino-nano-33-ble-sense-pwm-frequency/957895/3
+Measuring Motor friction constant:
+  https://robotics.stackexchange.com/questions/9935/how-to-find-friction-or-viscous-force-b-nmsec-in-dc-motor
