@@ -23,11 +23,18 @@ void setup() {
     Serial.println("Failed to initialize IMU!");
     while (1);
   }
+  delay(100);
+
   pinMode(motorA_input1, OUTPUT);
   pinMode(motorA_input2, OUTPUT);
   pinMode(motorB_input1, OUTPUT);
   pinMode(motorB_input2, OUTPUT);
-  delay(2000);
+
+  analogWrite(motorA_input1,0);
+  analogWrite(motorA_input2,0);
+  analogWrite(motorB_input1,0);
+  analogWrite(motorB_input2,0);
+  
 }
 
 void loop() {
@@ -85,4 +92,3 @@ void motor_Control(int speed,float W_angle){
   analogWrite(motorB_input2,0);   // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
   }
 }
-
