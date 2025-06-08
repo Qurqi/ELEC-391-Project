@@ -1,0 +1,60 @@
+#include "Arduino_BMI270_BMM150.h"
+#include "Wire.h"
+
+float k = 0.8;
+float W_angle = 0;
+float G_angle = 0;
+unsigned long start_time = 0;
+unsigned long end_time = 0;
+float Ax=0, Ay=0, Az=0, Gx=0, Gy=0, Gz=0, A_angle=0;
+int MA1 = 2, MA2 = 3, MB1 =4, MB2=5, pwm;
+const int pwm_min = 60; // minimum PWM value to start the motor
+float pwm_res = (255-pwm_min)/40; // Linear PWM resolution. PWM/deg
+bool neg = false; // flag to indicate if the angle is negative
+
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(115200);
+  // intialize clock signal
+  Wire.begin();
+  Wire.setClock(100000);
+
+  
+  delay(1000); // wait for the IMU to initialize
+  
+  Wire.beginTransmission(0x70); // Hey Multiplexer!
+  Wire.write(1<<2);
+  byte error = Wire.endTransmission(true); // run transaction
+
+  
+
+}
+
+void loop() {
+  // Send the MUX output byte to the multiplexer
+  Wire.beginTransmission(0x36); // Hey Multiplexer!
+  Wire.write(0x0D);
+  byte error = Wire.endTransmission(true); // run transaction
+  if (error)
+    Serial.println(error);
+  Wire.requestFrom(0x36,1);
+  while (Wire.available() == 0){
+      int d = Wire.read();
+      d = d << 8;
+      Serial.println(d);
+  }
+  Wire.beginTransmission(0x36); // Hey Multiplexer!
+  Wire.write(0x0C);
+  Wire.endTransmission(); // run transaction
+  Wire.requestFrom(0x36,1);
+
+  while (Wire.available() == 0){
+      int c = Wire.read();
+      Serial.println(c);
+  }
+ 
+
+ 
+
+}
