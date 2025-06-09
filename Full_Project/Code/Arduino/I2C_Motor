@@ -1,0 +1,246 @@
+#include "Arduino_BMI270_BMM150.h"
+#include "Wire.h"
+
+int motorA_input1 = 2;
+int motorA_input2 = 3;
+int motorB_input1 = 4;
+int motorB_input2 = 5;
+int motorA_pin = A6;
+int motorB_pin = A7;
+int speed;
+const float ADC_STEPS = (1 << 12)-1;
+
+
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(115200);
+  // intialize clock signal
+  Wire.begin();
+  Wire.setClock(400000);
+  IMU.begin(); 
+  if (!IMU.begin()) {
+    Serial.println("Failed to initialize IMU!");
+    while (1);
+  }
+  delay(100);
+
+  pinMode(motorA_input1, OUTPUT);
+  pinMode(motorA_input2, OUTPUT);
+  pinMode(motorB_input1, OUTPUT);
+  pinMode(motorB_input2, OUTPUT);
+
+  analogWrite(motorA_input1,0);
+  analogWrite(motorA_input2,0);
+  analogWrite(motorB_input1,0);
+  analogWrite(motorB_input2,0);
+  
+}
+
+void forward(int speed){
+  analogWrite(motorA_input1,speed); // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
+  analogWrite(motorA_input2,0);   // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
+  analogWrite(motorB_input1,speed); // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
+  analogWrite(motorB_input2,0);   // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
+}
+
+void backward(int speed){
+  analogWrite(motorA_input1,0); // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
+  analogWrite(motorA_input2,speed);   // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
+  analogWrite(motorB_input1,0); // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
+  analogWrite(motorB_input2,speed);   // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
+}
+
+void reverse_one(int speed){
+  analogWrite(motorA_input1,0); // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
+  analogWrite(motorA_input2,speed);   // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
+  analogWrite(motorB_input1,speed); // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
+  analogWrite(motorB_input2,0);   // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
+}
+
+void reverse_two(int speed){
+  analogWrite(motorA_input1,speed); // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
+  analogWrite(motorA_input2,0);   // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
+  analogWrite(motorB_input1,0); // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
+  analogWrite(motorB_input2,speed);   // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
+}
+
+void stop(){
+  analogWrite(motorA_input1,0); // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
+  analogWrite(motorA_input2,0);   // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
+  analogWrite(motorB_input1,0); // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
+  analogWrite(motorB_input2,0);   // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
+}
+
+void set_port(int mux_port){
+
+  Wire.beginTransmission(0x70); // Hey Multiplexer!
+  Wire.write(1 << mux_port);
+  byte error = Wire.endTransmission(); // run transaction
+  if (error != 0)
+    Serial.println(error);
+
+}
+
+double read_angle_reg(){
+
+   // Read the angle data from the registers
+  int angle1 = read_register(0x0D);
+  int angle2 = read_register(0x0C);
+
+  // Combine the two bytes to get the full angle value
+  int angle = (angle2 << 8) | angle1;
+
+  return angle;
+}
+
+int read_register(uint8_t address){
+
+  Wire.beginTransmission(0x36);
+  Wire.write(address);
+  Wire.endTransmission();
+  Wire.requestFrom(0x36, 1); // Request 1 byte from the device
+  if (Wire.available()) {
+    return Wire.read(); // Read the byte
+  } 
+  else {
+    Serial.println("No data available");
+    return -1; // Return -1 if no data is available
+  }
+
+}
+
+void verify_hall(){
+  int status = read_register(0x0B);
+  
+
+  Serial.print("Status Register: ");
+  Serial.println(status, HEX); // Print the status in hexadecimal format
+
+  // check bit's 3(MH),4(ML),5(MD) to see if the magent is too close
+  // bit 3: 0x08 (MH) => Magnet too strong
+  // bit 4: 0x10 (ML) => Magnet too weak
+  // bit 5: 0x20 (MD) => Magnet detected
+  // we on;y want bit 5 to be set, so we can check if the magnet is detected
+  if (status & 0x20) {
+    Serial.println("Magnet detected");
+  } 
+  else {
+    Serial.println("No magnet detected");
+  }
+  // ensure that the magnet is positioned correctly
+  if (status & 0x08) {
+    Serial.println("Magnet too strong");
+  } 
+  else if (status & 0x10) {
+    Serial.println("Magnet too weak");
+  } 
+  else {
+    Serial.println("Magnet strength is okay");
+  }
+
+
+}
+
+double get_angle(int port_no){
+
+  set_port(port_no); // Set the multiplexer port
+
+  // Read the angle from the registers
+  double angle = read_angle_reg();
+
+  // Verify the hall effect sensor
+  set_port(0); // Set the multiplexer port again
+
+  return angle;
+}
+
+bool increasing(float *readings,int port){
+
+  // Check if the last read value is larger than the current value
+  // If it is, return true, else return false
+  readings[0] = readings[1]; // Store the last read value
+  readings[1] = read_angle_reg(); // HACK. REPLACE WITH get_angle(port) WHEN MUX IS BACK
+  if (readings[0] > readings[1]) {
+    return false;
+  } 
+  else {
+    return true;
+  }
+}
+
+int get_rpm(){
+
+  int val = analogRead(motorA_pin);  // read the input pin
+  float voltage = (val / ADC_STEPS) * 3.30;
+
+  unsigned long int start_time = 0, end_time = 0, elapsed_time = 0;
+  while(voltage > 0.2){
+   val = analogRead(motorA_pin);  // read the input pin
+   voltage = (val / ADC_STEPS) * 3.30;
+  };
+  start_time = millis();
+  while (voltage < 0.79){
+    val = analogRead(motorA_pin);  // read the input pin
+   voltage = (val / ADC_STEPS) * 3.30;
+  };
+  end_time = millis();
+  elapsed_time = end_time - start_time;
+  double rpm = 60000.0/elapsed_time;
+  
+  Serial.println("RPM:");// debug value
+  Serial.println(rpm);
+  return rpm; // Return the RPM value
+
+}
+
+void configure_reg(int reg_add, int reg_val){
+  Wire.beginTransmission(0x36);
+  Wire.write(reg_add); // SF register address
+  Wire.write(reg_val); // Set filter response time to '11'
+  Wire.endTransmission();
+  delay(100);
+  // verify register contents
+  Wire.beginTransmission(0x36);
+  Wire.write(reg_add); // SF register address
+  Wire.endTransmission();
+  Wire.requestFrom(0x36, 1); // Request 1 byte from the device
+  if (Wire.available()) {
+    Serial.print("Register Value: ");
+    Serial.println(Wire.read()); // Print the value in hexadecimal format
+  } else {
+    Serial.println("No data available");
+  }
+}
+
+
+void loop() {
+
+  forward(255);
+
+  //verify_hall();
+  //double angle_data = get_angle(2);
+  //Serial.println("Motor B angle (Boardside Motor):");
+  //Serial.println(angle_data);
+  
+  
+ 
+  
+  // Write SF register to '11' to increase filter response time
+
+  
+
+  //Serial.println(rpm);
+
+  //angle_data = get_angle(7);
+  //Serial.println("Motor B angle: (MUX side motor)");
+  //Serial.println(angle_data);
+
+  // Send data to python
+
+
+
+}
+
+
+ 
