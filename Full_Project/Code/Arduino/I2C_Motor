@@ -1,16 +1,25 @@
 #include "Arduino_BMI270_BMM150.h"
 #include "Wire.h"
+#include "mbed.h"
+#include "BasicLinearAlgebra.h"
 
-int motorA_input1 = 2;
-int motorA_input2 = 3;
-int motorB_input1 = 4;
-int motorB_input2 = 5;
-int motorA_pin = A6;
-int motorB_pin = A7;
-int speed;
+#define motorA_input1  2
+#define motorA_input2 3
+#define motorB_input1 4
+#define motorB_input2 5
+#define motorA_pin = A6
+#define motorB_pin = A7
+#define PWM_FREQUENCY         750
+
+mbed::PwmOut motorA_inputA( digitalPinToPinName( motorA_input1 ) );
+mbed::PwmOut motorA_inputB( digitalPinToPinName( motorA_input2 ) );
+mbed::PwmOut motorB_inputA( digitalPinToPinName( motorB_input1 ) );
+mbed::PwmOut motorB_inputB( digitalPinToPinName( motorB_input2 ) );
+
 const float ADC_STEPS = (1 << 12)-1;
 
-
+char buffer[20];
+char userInput;
 
 void setup() {
   // put your setup code here, to run once:
@@ -25,51 +34,57 @@ void setup() {
   }
   delay(100);
 
-  pinMode(motorA_input1, OUTPUT);
-  pinMode(motorA_input2, OUTPUT);
-  pinMode(motorB_input1, OUTPUT);
-  pinMode(motorB_input2, OUTPUT);
 
-  analogWrite(motorA_input1,0);
-  analogWrite(motorA_input2,0);
-  analogWrite(motorB_input1,0);
-  analogWrite(motorB_input2,0);
-  
+  // configure all motor signal pins with proper frequency
+  // set all pins to low intially
+  motorA_inputA.period( 1.0 / PWM_FREQUENCY ); // set pin period
+  motorA_inputA.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
+
+  motorA_inputB.period( 1.0 / PWM_FREQUENCY );
+  motorA_inputB.write( 0.0 );
+
+  motorB_inputA.period( 1.0 / PWM_FREQUENCY );
+  motorB_inputA.write( 0.0 );
+
+  motorB_inputB.period( 1.0 / PWM_FREQUENCY );
+  motorB_inputB.write( 0.0 );
+
 }
 
-void forward(int speed){
-  analogWrite(motorA_input1,speed); // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
-  analogWrite(motorA_input2,0);   // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
-  analogWrite(motorB_input1,speed); // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
-  analogWrite(motorB_input2,0);   // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
+void forward(double speed){
+  motorA_inputA.write( speed ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorA_inputB.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorB_inputA.write( speed ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorB_inputB.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
+
 }
 
-void backward(int speed){
-  analogWrite(motorA_input1,0); // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
-  analogWrite(motorA_input2,speed);   // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
-  analogWrite(motorB_input1,0); // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
-  analogWrite(motorB_input2,speed);   // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
+void backward(double speed){
+  motorA_inputA.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorA_inputB.write( speed ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorB_inputA.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorB_inputB.write( speed ); // express the duty cycle as a percentage (0.0 to 1.0)
 }
 
-void reverse_one(int speed){
-  analogWrite(motorA_input1,0); // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
-  analogWrite(motorA_input2,speed);   // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
-  analogWrite(motorB_input1,speed); // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
-  analogWrite(motorB_input2,0);   // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
+void reverse_one(double speed){
+  motorA_inputA.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorA_inputB.write( speed ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorB_inputA.write( speed ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorB_inputB.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
 }
 
-void reverse_two(int speed){
-  analogWrite(motorA_input1,speed); // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
-  analogWrite(motorA_input2,0);   // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
-  analogWrite(motorB_input1,0); // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
-  analogWrite(motorB_input2,speed);   // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
+void reverse_two(double speed){
+  motorA_inputA.write( speed ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorA_inputB.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorB_inputA.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorB_inputB.write( speed ); // express the duty cycle as a percentage (0.0 to 1.0)
 }
 
 void stop(){
-  analogWrite(motorA_input1,0); // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
-  analogWrite(motorA_input2,0);   // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
-  analogWrite(motorB_input1,0); // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
-  analogWrite(motorB_input2,0);   // 0 for 0%; 64 for 25%; 127 for 50%; 191 for 75%
+  motorA_inputA.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorA_inputB.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorB_inputA.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorB_inputB.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
 }
 
 void set_port(int mux_port){
@@ -111,6 +126,8 @@ int read_register(uint8_t address){
 }
 
 void verify_hall(){
+// Read and parse the status register
+// The status register is at address 0x0B
   int status = read_register(0x0B);
   
 
@@ -169,67 +186,91 @@ bool increasing(float *readings,int port){
   }
 }
 
-int get_rpm(){
+int get_rpm(int pin){
 
-  int val = analogRead(motorA_pin);  // read the input pin
+  int val = analogRead(pin);  // read the input pin
   float voltage = (val / ADC_STEPS) * 3.30;
 
   unsigned long int start_time = 0, end_time = 0, elapsed_time = 0;
   while(voltage > 0.2){
-   val = analogRead(motorA_pin);  // read the input pin
+   val = analogRead(pin);  // read the input pin
    voltage = (val / ADC_STEPS) * 3.30;
   };
   start_time = millis();
   while (voltage < 0.79){
-    val = analogRead(motorA_pin);  // read the input pin
+    val = analogRead(pin);  // read the input pin
    voltage = (val / ADC_STEPS) * 3.30;
   };
   end_time = millis();
   elapsed_time = end_time - start_time;
   double rpm = 60000.0/elapsed_time;
   
-  Serial.println("RPM:");// debug value
+  Serial.print("RPM for motor at pin",pin,": ");// debug value
   Serial.println(rpm);
   return rpm; // Return the RPM value
 
 }
 
-void configure_reg(int reg_add, int reg_val){
-  Wire.beginTransmission(0x36);
-  Wire.write(reg_add); // SF register address
-  Wire.write(reg_val); // Set filter response time to '11'
-  Wire.endTransmission();
-  delay(100);
-  // verify register contents
-  Wire.beginTransmission(0x36);
-  Wire.write(reg_add); // SF register address
-  Wire.endTransmission();
-  Wire.requestFrom(0x36, 1); // Request 1 byte from the device
-  if (Wire.available()) {
-    Serial.print("Register Value: ");
-    Serial.println(Wire.read()); // Print the value in hexadecimal format
-  } else {
-    Serial.println("No data available");
-  }
-}
-
 
 void loop() {
+  double speed = 0;
+  double i = 0.0;
+  
+  while (1) {
 
-  forward(255);
+    userInput = Serial.read();
+    forward(i); // Move forward at the specified speed
+    Serial.print("Motor A and B duty cycle: ");
+    Serial.println(i);
+    int rpm_A = get_rpm(motorA_pin);
+    int rpm_B = get_rpm(motorB_pin);
+
+    sprintf(buffer, "%d:%d", rpm_A, rpm_B);
+
+    if (userInput == 'k') {
+        Serial.println(i);
+      }
+    if (userInput == 'd') {
+        Serial.println(buffer);
+      }
+    if (userInput == 'n') {
+          i += 0.01;    
+      }
+    if (userInput == 'e'){
+      Serial.println("Exit signal Recieved. Transmission ended");
+      
+      while (1);
+      } 
+  }
+  stop(); // Stop the motors
+  delay(1000); // Wait for a second before the next operation
+  
 
   //verify_hall();
   //double angle_data = get_angle(2);
   //Serial.println("Motor B angle (Boardside Motor):");
   //Serial.println(angle_data);
-  
-  
- 
-  
+  //int rpm = get_rpm(2);
+  //float ADC_STEPS = (1 << 12)-1;
+  //int val = analogRead(motorA_pin);  // read the input pin
+  //float voltage = (val / ADC_STEPS) * 3.30;
+
+  //while(voltage > 0.00);
+  //start_time = millis();
+  //while (voltage < 0) {};
+  //end_time = millis();
+  //elapsed_time = end_time - start_time;
+
+
+  //Serial.println(voltage);          // debug value
   // Write SF register to '11' to increase filter response time
 
   
 
+
+  
+
+  delay(200);
   //Serial.println(rpm);
 
   //angle_data = get_angle(7);
