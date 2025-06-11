@@ -1,0 +1,224 @@
+#include "Arduino_BMI270_BMM150.h"
+#include "Wire.h"
+#include "mbed.h"
+#include "BasicLinearAlgebra.h"
+#include "StateSpaceControl.h"
+
+#define motorA_input1  2
+#define motorA_input2 3
+#define motorB_input1 4
+#define motorB_input2 5
+#define motorA_pin  A6
+#define motorB_pin  A7
+#define PWM_FREQUENCY         750
+
+mbed::PwmOut motorA_inputA( digitalPinToPinName( motorA_input1 ) );
+mbed::PwmOut motorA_inputB( digitalPinToPinName( motorA_input2 ) );
+mbed::PwmOut motorB_inputA( digitalPinToPinName( motorB_input1 ) );
+mbed::PwmOut motorB_inputB( digitalPinToPinName( motorB_input2 ) );
+
+const float ADC_STEPS = (1 << 12)-1;
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(115200);
+  // intialize clock signal
+  Wire.begin();
+  Wire.setClock(400000);
+  IMU.begin(); 
+  if (!IMU.begin()) {
+    Serial.println("Failed to initialize IMU!");
+    while (1);
+  }
+  delay(100);
+
+
+  // configure all motor signal pins with proper frequency
+  // set all pins to low intially
+  motorA_inputA.period( 1.0 / PWM_FREQUENCY ); // set pin period
+  motorA_inputA.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
+
+  motorA_inputB.period( 1.0 / PWM_FREQUENCY );
+  motorA_inputB.write( 0.0 );
+
+  motorB_inputA.period( 1.0 / PWM_FREQUENCY );
+  motorB_inputA.write( 0.0 );
+
+  motorB_inputB.period( 1.0 / PWM_FREQUENCY );
+  motorB_inputB.write( 0.0 );
+
+}
+
+void forward(double speed){
+  motorA_inputA.write( speed ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorA_inputB.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorB_inputA.write( speed + 0.01); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorB_inputB.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
+
+}
+void backward(double speed){
+  motorA_inputA.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorA_inputB.write( speed ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorB_inputA.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorB_inputB.write( speed +0.01); // express the duty cycle as a percentage (0.0 to 1.0)
+}
+
+void reverse_one(double speed){
+  motorA_inputA.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorA_inputB.write( speed ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorB_inputA.write( speed+0.01); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorB_inputB.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
+}
+
+void reverse_two(double speed){
+  motorA_inputA.write( speed ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorA_inputB.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorB_inputA.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorB_inputB.write( speed+0.01 ); // express the duty cycle as a percentage (0.0 to 1.0)
+}
+
+void stop(){
+  motorA_inputA.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorA_inputB.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorB_inputA.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
+  motorB_inputB.write( 0.0 ); // express the duty cycle as a percentage (0.0 to 1.0)
+}
+
+void get_rpm(int pin, int *direction, double *x, double *x_dot, double *omega){
+
+  int val1 = analogRead(pin), val2  = 0;  // read the input pin
+  double voltage1 = (val1 / ADC_STEPS) * 3.30;
+  delayMicroseconds(4800); // wait for value change
+  val2 = analogRead(pin);
+  double voltage2 = (val2 / ADC_STEPS) * 3.30;
+  double diffy = abs(voltage1 - voltage2);
+ 
+  if(diffy < 0.00200002){
+    return;
+  }
+
+  unsigned long int start_time = 0, end_time = 0, elapsed_time = 0, diff = 0, timeout_s = millis(), timeout_f = 0;
+
+  // while voltage in no-no zone, wait. Make sure you're not waiting too long!
+  while(voltage1 < 0.30 || voltage1 > 0.79 ){ // noise of sensor is around 0.26
+      val1 = analogRead(pin);  // read the input pin
+      voltage1 = (val1 / ADC_STEPS) * 3.30;
+      timeout_f = millis();
+      diff = timeout_f -timeout_s;
+      if (diff > 200)
+        return;
+      
+  };
+  start_time = micros();
+  val1 = analogRead(pin);  // read the input pin
+  delayMicroseconds(4800); // wait for value change
+  val2 = analogRead(pin); // read the pin again
+  end_time = micros();
+  voltage1 = (val1 / ADC_STEPS) * 3.30;
+  voltage2 = (val2 / ADC_STEPS) * 3.30;
+  elapsed_time = end_time - start_time;
+  *omega = (0.0174532925)*(360/0.81)*1000000*(voltage2 - voltage1)/elapsed_time; // rad/s
+  
+  if(*omega < 0){
+    *direction = -1;
+    *omega *= *direction;
+  }
+  else{
+    *direction = 1;
+  }
+
+  double rpm = *omega/(6*0.0174532925);// deg/s 360/theta_dot = seconds to rotate once
+  *x_dot = *direction*rpm*0.0741765/60.00; // the velocity of the robot in m/s.
+  *x = *x + *x_dot*elapsed_time;
+
+}
+
+
+void loop() {
+  // average voltage calc time is 0.004 milliseconds
+  // period of sawtooth is 188 milliseconds
+  // voltage does not change for at least ten samples of voltage. call it 12 for safety
+  // voltage changing every 0.48 milliseconds
+  // set a bound that is 2 milliseconds around 
+  // 0.01V is approximately 0.48 milliseconds
+  // lowest bound is 0.1, highest is 0.81
+  // set bounds as 0.3 and 0.79
+  // bound width is 0.96 on either side of the edge vals
+  // wait 0.52 milliseconds between samples
+  
+  // min PWM 2%
+  // motor A turns at 21%
+  // motor B turns at 22%
+  int direction = 1; // if direction is 1, motor is going forward. If -1, motor is going backward
+  double x = 0.0;
+  double x_dot = 0.0;
+  double omega = 0.0;
+
+  float M = 0.072579;
+  float m = 0.0313965;
+  float b = 0.1;
+  float l = 0.045;
+  float I = 0.001227;
+
+  float R = 2;
+  float L = 0.00000197883771873;
+  float Kt = ;
+  double Ke = ;
+  float motor_b = 0.1;
+  float motor_J = ;
+  
+
+
+  
+
+  float force = (Ke/(r*R))*(10.4*duty-Ke*omega);
+
+  CartPoleModel model(M, m, b, l, I);
+
+  StateSpaceController<4, 1, 2> controller(model);
+
+  Matrix<2> y;
+
+  controller.K = {-70.7107, -37.8345, 105.5298, 20.9238};
+
+  controller.update(y, dt);
+
+ 
+  }
+
+
+
+  /*while (1) {
+
+      
+    forward(i); // Move forward at the specified speed
+    //Serial.print("Motor A and B duty cycle: ");
+    //Serial.println(i);
+    int rpm_A = get_rpm(motorA_pin);
+    int rpm_B = get_rpm(motorB_pin);
+
+    sprintf(buffer, "%d:%d", rpm_A, rpm_B);
+
+    if (userInput == 'k') {
+        Serial.println(i);
+      }
+    if (userInput == 'd') {
+        Serial.println(buffer);
+      }
+    if (userInput == 'n') {
+          i += 0.01;    
+      }
+    if (userInput == 'e'){
+      Serial.println("Exit signal Recieved. Transmission ended");
+      
+      while (1);
+      } 
+      userInput = Serial.read();
+  }*/
+
+ 
+
+
+
+
+ 
