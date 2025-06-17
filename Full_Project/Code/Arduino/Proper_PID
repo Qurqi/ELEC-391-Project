@@ -1,0 +1,285 @@
+
+#include <ArduinoBLE.h>
+#include <Arduino_BMI270_BMM150.h>
+
+// === Constants ===
+#define BUFFER_SIZE 10
+#define ADC_STEPS 4095
+#define SAMPLING_DELAY_US 25000
+#define DEADZONE_LOW 0.30
+#define DEADZONE_HIGH 3
+#define MOTOR_START_OFFSET 37
+#define MOTOR_PWM_MAX 255
+#define WHEEL_DIAMETER_M 0.081
+#define WHEEL_CIRCUMFERENCE_M (PI * WHEEL_DIAMETER_M)
+
+// === Motor Pins ===
+const int motorA_input1 = 2;
+const int motorA_input2 = 3;
+const int motorB_input1 = 4;
+const int motorB_input2 = 5;
+const int excel_pin = A6;
+char userInput;
+float angle_offset = -0.82;
+// Kp = 6.7
+// Kd = 2.89
+
+// === BLE Service ===
+BLEService customService("c92494ef-184b-4dc3-9c30-991d0f5395fa");
+BLECharacteristic customCharacteristic("b0e8b73f-7a76-4e5b-9b9f-1abf19b6f49e", BLERead | BLEWrite | BLENotify, BUFFER_SIZE, false);
+char buffer[BUFFER_SIZE + 1];
+
+// === PID Constants ===
+float Kp1 = 0, Ki1 = 0, Kd1 = 0;      // Angle PID
+float Kp2 = 0, Ki2 = 0, Kd2 = 0;      // Position PID
+
+// === Global Variables ===
+float Desired_Angle = 0.0;
+float Desired_position = 0.0;
+float W_angle = 0.0/*, A_angle = 0.0, G_angle_change = 0.0*/;
+//float Ax, Ay, Az, Gx, Gy, Gz;
+float current_error = 0, previous_error = 0, integral = 0;
+float current_error2 = 0, previous_error2 = 0, integral2 = 0;
+float PID_output = 0, PID_output2 = 0;
+int speed = 0, speed_input = 0;
+int dir = 1, flag = 0;
+double x_position = 0, accel = 0;
+float ang_vel = 0;
+unsigned long start_time = 0, end_time = 0;
+double PID_start = 0, PID_end = 0, PID_time=1, PID2_start = 0, PID2_end = 0,  PID2_time = 1;
+ 
+
+
+// === Setup ===
+void setup() {
+  analogReadResolution(12);
+
+  Serial.begin(115200);
+
+  // BLE
+  if (!BLE.begin()) {
+    Serial.println("Starting BLE failed!");
+    while (1);
+  }
+
+  // IMU
+  if (!IMU.begin()) {
+    Serial.println("Failed to initialize IMU!");
+    while (1);
+  }
+  delay(100);
+
+  // Motor Setup
+  pinMode(motorA_input1, OUTPUT);
+  pinMode(motorA_input2, OUTPUT);
+  pinMode(motorB_input1, OUTPUT);
+  pinMode(motorB_input2, OUTPUT);
+
+  analogWrite(motorA_input1, 0);
+  analogWrite(motorA_input2, 0);
+  analogWrite(motorB_input1, 0);
+  analogWrite(motorB_input2, 0);
+
+  // BLE Advertise
+  BLE.setLocalName("BLE-DEVICE-G5");
+  BLE.setDeviceName("BLE-DEVICE-G5");
+  customService.addCharacteristic(customCharacteristic);
+  BLE.addService(customService);
+  customCharacteristic.writeValue("Waiting for data");
+  BLE.advertise();
+
+  Serial.println("Bluetooth® device active, waiting for connections...");
+}
+
+// === Main Loop ===
+void loop() {
+  BLEDevice central = BLE.central();
+  
+  userInput = Serial.read();
+
+    switch (userInput) {
+          case 'a':
+            Serial.print(" Kp1: ");
+            Serial.println(Kp1);
+            Serial.print(" Ki1: ");
+            Serial.println(Ki1);
+            Serial.print(" Kd1: ");
+            Serial.println(Kd1);
+            Serial.print("Dead Zone: ");
+            Serial.println();
+            Serial.print("Desired Angle: ");
+            Serial.println(Desired_Angle);
+            break;
+          case 'd':
+            Kd1 += 0.01;
+            break;
+          case 's':
+            Kd1 -= 0.01;
+            if (Kd1 < 0) {
+              Kd1 = 0;
+            }
+            break;
+          case 'p':
+            Kp1 += 0.1;
+            break;
+          case 'o':
+            Kp1 -= 0.1;
+            if (Kp1 < 0) {
+              Kp1 = 0;
+            }
+            break;
+          case 'i':
+            Ki1 += 0.1;
+            break;
+          case 'u':
+            Ki1 -= 0.1;
+            if (Ki1 < 0) {
+              Ki1 = 0;
+            }
+            break;
+          case 'j':
+            angle_offset += 0.01;
+            break;
+          case 'h':
+            angle_offset -= 0.01;
+            break;
+          default:
+            break;
+          }
+
+  
+  if(central){
+  
+  digitalWrite(LED_BUILTIN, HIGH); // Turn on LED to indicate connection
+  
+  if (central && customCharacteristic.written()) {
+    memcpy(buffer, customCharacteristic.value(), customCharacteristic.valueLength());
+    int length = customCharacteristic.valueLength();
+    buffer[length] = '\0';
+    if (customCharacteristic.written()) {
+      if (length > 0) {
+        char receivedChar = buffer[0];
+        switch (receivedChar) {
+          case 'W': Desired_position += 0.1; break;
+          case 'A': break;
+          case 'S': Desired_position -= 0.1; break;
+          case 'D': break;
+          case '1': Desired_position = 0; break;
+          case '2': break;
+          case '3': break;
+        }
+        Desired_position = 0.0;
+        Serial.print("Received: "); Serial.println(receivedChar);
+        Serial.print("angle: "); Serial.print(W_angle);
+        Serial.print(" | x_dot: "); Serial.print(accel);
+        Serial.print(" | x: "); Serial.println(x_position);
+        }
+      }
+      
+    }
+  }
+
+  get_rpm(excel_pin, &dir, &x_position, &accel, &ang_vel,&W_angle, &start_time, &end_time);
+
+  // --- Position PID ---
+  current_error2 = x_position - Desired_position;
+  float P2 = Kp2 * current_error2;
+  PID2_time = millis() - PID2_start;
+  PID2_start = millis();
+  integral2 += Ki2 * current_error2*PID2_time;
+  integral2 = constrain(integral2, -60, 60);
+  float D_2 = Kd2 * (current_error2 - previous_error2)/PID2_time;
+  //float D_2 = 0;
+  PID_output2 = P2 + integral2 + D_2;
+  previous_error2 = current_error2;
+  Desired_Angle = PID_output2 + angle_offset;
+
+  // --- Angle PID ---
+  current_error = W_angle - Desired_Angle;
+  float P = Kp1 * current_error;
+  PID_time = millis() - PID_start;
+  PID_start = millis();
+  integral += Ki1 * current_error*PID_time;
+  integral = constrain(integral, -60, 60);
+  float D = Kd1 * (current_error - previous_error)/PID_time;
+  PID_output = P + integral + D;
+  previous_error = current_error;
+  speed = PID_output;
+  speed_input = abs(speed);
+
+  flag = (speed > 1) ? 1 : (speed < -1) ? -1 : 0;
+  if (speed_input + MOTOR_START_OFFSET >= MOTOR_PWM_MAX)
+    speed_input = 225;
+  
+  motor_Control(speed_input + MOTOR_START_OFFSET, flag);
+
+  }
+  
+
+
+// === Motor Control ===
+void motor_Control(int speed, int direction) {
+  if (direction > 0) {
+    analogWrite(motorA_input1, speed);
+    analogWrite(motorA_input2, 0);
+    analogWrite(motorB_input1, speed+3);
+    analogWrite(motorB_input2, 0);
+  } else if (direction < 0) {
+    analogWrite(motorA_input1, 0);
+    analogWrite(motorA_input2, speed);
+    analogWrite(motorB_input1, 0);
+    analogWrite(motorB_input2, speed+3);
+  } else {
+    analogWrite(motorA_input1, 50);
+    analogWrite(motorA_input2, 50);
+    analogWrite(motorB_input1, 50);
+    analogWrite(motorB_input2, 50);
+  }
+}
+
+// === RPM and Velocity Estimation ===
+void get_rpm(int pin, int *direction, double *x, double *x_dot, float *omega, float* angle, unsigned long *begin_time, unsigned long *end_time) {
+
+  float Ax, Ay, Az, Gx, Gy, Gz;
+  float A_angle = 0.0, G_angle_change = 0.0;
+  double voltage1;
+  unsigned long start = micros();
+  float val1 = analogRead(A7), val2;
+  //delayMicroseconds(SAMPLING_DELAY_US);
+  IMU.readAcceleration(Ax, Ay, Az);
+  IMU.readGyroscope(Gx, Gy, Gz);
+  val2 = analogRead(A7);
+  unsigned long elapsed_time = micros() - start;
+  *begin_time = micros();
+  float T = (*begin_time - *end_time) * 1e-6;  // seconds
+  G_angle_change = Gx * T;
+  *end_time = micros();
+  A_angle = atan2(Ay, Az) * 180 / PI;
+  float NG_angle_change = -G_angle_change;
+  *angle = 0.8*(*angle+NG_angle_change) + (0.2)*(A_angle);
+  if(abs(val2-val1)< 15||abs(val2-val1)> 3500){
+    *omega = 0 ;
+    *x_dot = 0;
+    return;
+  }
+  //Serial.print("data"); Serial.println(val2-val1);
+  voltage1 = (val1 / 4095.0) * 3.3;
+  double voltage2 = (val2 / 4095.0) * 3.3;
+  //if abs((0.0174532925)*(360/3.3)*1000000*(voltage2 - voltage1)/elapsed_time) > 2600) return;
+  *omega = -1*(0.0174532925)*(360/3.3)*1000000*(voltage2 - voltage1)/elapsed_time; // rad/s
+
+  if(*omega < 0){
+    *direction = -1;
+    *omega *= -1;
+  }
+  else{
+    *direction = 1;
+  }
+
+  double rpm = *omega * 60.0 / (2.0 * PI);// deg/s 360/theta_dot = seconds to rotate once
+  *x_dot = *direction * rpm * WHEEL_CIRCUMFERENCE_M / 60.0;
+  *x += *x_dot * (elapsed_time / 1e6);
+  
+  return;
+}
+
